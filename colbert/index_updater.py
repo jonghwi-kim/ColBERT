@@ -74,33 +74,27 @@ class IndexUpdater:
         these pids will no longer apppear in future searches with this searcher
         to erase passage data from index, call persist_to_disk() after calling remove()
         """
+        invalid_pids = self._check_pids(pids)
+        if invalid_pids:
+            raise ValueError("Invalid PIDs", invalid_pids)
+
         print_message(f"#> Removing pids: {pids}...")
         self._remove_pid_from_ivf(pids)
         self.removed_pids.extend(pids)
 
-    def add(self, passages):
-        """
-        Input:
-            passages: list(string)
-        Output:
-            passage_ids: list(int)
-
-        Adds new passages to the searcher,
-        to add passages to the index, call persist_to_disk() after calling add()
-        """
-        if not self.has_checkpoint:
-            raise ValueError(
-                "No checkpoint was provided at IndexUpdater initialization."
-            )
-
-        # Find pid for the first added passage
-        start_pid = len(self.searcher.ranker.doclens)
-        curr_pid = start_pid
-
+    def create_embs_and_doclens(
+        self, passages, embs_path="embs.pt", doclens_path="doclens.pt", persist=False
+    ):
         # Extend doclens and embs of self.searcher.ranker
         embs, doclens = self.encoder.encode_passages(passages)
         compressed_embs = self.searcher.ranker.codec.compress(embs)
 
+        if persist:
+            torch.save(compressed_embs, embs_path)
+            torch.save(doclens, doclens_path)
+        return compressed_embs, doclens
+
+    def update_searcher(self, compressed_embs, doclens, curr_pid):
         # Update searcher
         # NOTE: For codes and residuals, the tensors end with padding of length 512,
         # hence we concatenate the new appendage in front of the padding
@@ -126,16 +120,22 @@ class IndexUpdater:
 
         # Build partitions for each pid and update IndexUpdater's current ivf
         start = 0
+        ivf = self.curr_ivf.tolist()
+        ivf_lengths = self.curr_ivf_lengths.tolist()
         for doclen in doclens:
             end = start + doclen
             codes = compressed_embs.codes[start:end]
             partitions, _ = self._build_passage_partitions(codes)
-            self._add_pid_to_ivf(partitions, curr_pid)
+            ivf, ivf_lengths = self._add_pid_to_ivf(partitions, curr_pid, ivf, ivf_lengths)
 
             start = end
             curr_pid += 1
-
+        
         assert start == sum(doclens)
+
+        # Replace the current ivf with new_ivf
+        self.curr_ivf = torch.tensor(ivf, dtype=self.curr_ivf.dtype)
+        self.curr_ivf_lengths = torch.tensor(ivf_lengths, dtype=self.curr_ivf_lengths.dtype)
 
         # Update new ivf in searcher
         new_ivf_tensor = StridedTensor(
@@ -145,11 +145,29 @@ class IndexUpdater:
         self.searcher.ranker.ivf = new_ivf_tensor
 
         # Rebuild StridedTensor within searcher
-        self.searcher.ranker.embeddings_strided = ResidualEmbeddingsStrided(
-            self.searcher.ranker.codec,
-            self.searcher.ranker.embeddings,
-            self.searcher.ranker.doclens,
-        )
+        self.searcher.ranker.set_embeddings_strided()
+
+    def add(self, passages):
+        """
+        Input:
+            passages: list(string)
+        Output:
+            passage_ids: list(int)
+
+        Adds new passages to the searcher,
+        to add passages to the index, call persist_to_disk() after calling add()
+        """
+        if not self.has_checkpoint:
+            raise ValueError(
+                "No checkpoint was provided at IndexUpdater initialization."
+            )
+
+        # Find pid for the first added passage
+        start_pid = len(self.searcher.ranker.doclens)
+        curr_pid = start_pid
+
+        compressed_embs, doclens = self.create_embs_and_doclens(passages)
+        self.update_searcher(compressed_embs, doclens, curr_pid)
 
         print_message(f"#> Added {len(passages)} passages from pid {start_pid}.")
         new_pids = list(range(start_pid, start_pid + len(passages)))
@@ -238,7 +256,9 @@ class IndexUpdater:
         # Update metadata
         print_message("#> Updating metadata for added passages...")
         self.metadata["num_chunks"] = curr_num_chunks
-        self.metadata["num_embeddings"] = torch.sum(self.searcher.ranker.doclens).item()
+        self.metadata["num_embeddings"] += torch.sum(
+            self.searcher.ranker.doclens
+        ).item()
         metadata_path = os.path.join(self.index_path, "metadata.json")
         with open(metadata_path, "w") as output_metadata:
             ujson.dump(self.metadata, output_metadata)
@@ -247,6 +267,10 @@ class IndexUpdater:
         optimized_ivf_path = os.path.join(self.index_path, "ivf.pid.pt")
         torch.save((self.curr_ivf, self.curr_ivf_lengths), optimized_ivf_path)
         print_message(f"#> Persisted updated IVF to {optimized_ivf_path}")
+
+        self.removed_pids = []
+        self.first_new_emb = torch.sum(self.searcher.ranker.doclens).item()
+        self.first_new_pid = len(self.searcher.ranker.doclens)
 
     # HELPER FUNCTIONS BELOW
 
@@ -307,6 +331,13 @@ class IndexUpdater:
                 return i
         raise ValueError("Passage ID out of range")
 
+    def _check_pids(self, pids):
+        invalid_pids = []
+        for pid in pids:
+            if pid < 0 or pid >= len(self.searcher.ranker.doclens):
+                invalid_pids.append(pid)
+        return invalid_pids
+
     def _remove_pid_from_ivf(self, pids):
         # Helper function for IndexUpdater.remove()
 
@@ -353,7 +384,7 @@ class IndexUpdater:
         partitions, ivf_lengths = values.unique_consecutive(return_counts=True)
         return partitions, ivf_lengths
 
-    def _add_pid_to_ivf(self, partitions, pid):
+    def _add_pid_to_ivf(self, partitions, pid, old_ivf, old_ivf_lengths):
         """
         Helper function for IndexUpdater.add()
 
@@ -366,8 +397,6 @@ class IndexUpdater:
         """
         new_ivf = []
         new_ivf_lengths = []
-        old_ivf = self.curr_ivf.tolist()
-        old_ivf_lengths = self.curr_ivf_lengths.tolist()
 
         partitions_runner = 0
         ivf_runner = 0
@@ -389,9 +418,7 @@ class IndexUpdater:
         assert ivf_runner == len(old_ivf)
         assert sum(new_ivf_lengths) == len(new_ivf)
 
-        # Replace the current ivf with new_ivf
-        self.curr_ivf = torch.tensor(new_ivf)
-        self.curr_ivf_lengths = torch.tensor(new_ivf_lengths)
+        return new_ivf, new_ivf_lengths
 
     def _write_to_last_chunk(self, pid_start, pid_end, emb_start, emb_end):
         # Helper function for IndexUpdater.persist_to_disk()
