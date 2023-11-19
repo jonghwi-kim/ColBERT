@@ -46,6 +46,7 @@ def train(args):
                                       dim=args.dim,
                                       similarity_metric=args.similarity,
                                       mask_punctuation=args.mask_punctuation)
+    colbert.roberta.resize_token_embeddings(len(colbert.tokenizer))
 
     if args.checkpoint is not None:
         assert args.resume_optimizer is False, "TODO: This would mean reload optimizer too."
@@ -97,7 +98,7 @@ def train(args):
                 loss = criterion(scores, labels[:scores.size(0)])
                 loss = loss / args.accumsteps
 
-            if args.rank < 1:
+            if args.rank < 1 and batch_idx % 10 == 0:
                 print_progress(scores)
 
             amp.backward(loss)
@@ -119,5 +120,6 @@ def train(args):
             Run.log_metric('train/examples', num_examples_seen, step=batch_idx, log_to_mlflow=log_to_mlflow)
             Run.log_metric('train/throughput', num_examples_seen / elapsed, step=batch_idx, log_to_mlflow=log_to_mlflow)
 
-            print_message(batch_idx, avg_loss)
-            manage_checkpoints(args, colbert, optimizer, batch_idx+1)
+            if batch_idx % 10 == 0:
+                print_message(batch_idx, avg_loss)
+                manage_checkpoints(args, colbert, optimizer, batch_idx+1)
