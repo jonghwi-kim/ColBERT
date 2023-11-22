@@ -17,7 +17,7 @@ def get_faiss_index_name(args, offset=None, endpos=None):
     partitions_info = '' if args.partitions is None else f'.{args.partitions}'
     range_info = '' if offset is None else f'.{offset}-{endpos}'
 
-    return f'ivfpq{partitions_info}{range_info}.faiss'
+    return f'ivfpq.faiss'
 
 
 def load_sample(samples_paths, sample_fraction=None):
