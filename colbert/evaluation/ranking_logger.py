@@ -6,7 +6,7 @@ from colbert.utils.runs import Run
 
 
 class RankingLogger():
-    def __init__(self, directory, qrels=None, log_scores=False):
+    def __init__(self, directory, qrels=None, log_scores=True):
         self.directory = directory
         self.qrels = qrels
         self.filename, self.also_save_annotations = None, None

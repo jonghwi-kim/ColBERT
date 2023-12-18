@@ -49,7 +49,7 @@ def retrieve(args):
             for query_idx, (qid, ranking) in enumerate(zip(qbatch, rankings)):
                 query_idx = qoffset + query_idx
 
-                if query_idx % 100 == 0:
+                if query_idx % 1000 == 0:
                     print_message(f"#> Logging query #{query_idx} (qid {qid}) now...")
 
                 ranking = [(score, pid, None) for pid, score in itertools.islice(ranking, args.depth)]
