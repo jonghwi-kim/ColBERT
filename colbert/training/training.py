@@ -123,4 +123,3 @@ def train(args):
             manage_checkpoints(args, colbert, optimizer, batch_idx+1)
             if batch_idx % 100 == 0:
                 print_message(batch_idx+1, avg_loss)
-                

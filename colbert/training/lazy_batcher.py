@@ -62,8 +62,9 @@ class LazyBatcher():
         with open(path) as f:
             for line_idx, line in enumerate(f):
                 pid, passage, *_ = line.strip().split('\t')
+                #pid, passage, title, *_ = line.strip().split('\t')
                 assert pid == 'id' or int(pid) == line_idx
-                
+
                 #passage = title + ' | ' + passage
                 collection.append(passage)
 
@@ -86,8 +87,8 @@ class LazyBatcher():
 
         for position in range(offset, endpos):
             query, pos, neg = self.triples[position]
-            query, pos, neg = self.queries[int(query)], self.collection[int(pos)], self.collection[int(neg)]
-            
+            query, pos, neg = self.queries[query], self.collection[pos], self.collection[neg]
+
             queries.append(query)
             positives.append(pos)
             negatives.append(neg)

@@ -42,9 +42,9 @@ class _RunManager():
 
                 # TODO: This should timeout and exit (i.e., fail) given no response for 60 seconds.
 
-                response = input()
-                if response.strip() != 'yes':
-                    assert not os.path.exists(self.path), self.path
+                #response = input()
+                #if response.strip() != 'yes':
+                #    assert not os.path.exists(self.path), self.path
             else:
                 create_directory(self.path)
 

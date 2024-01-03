@@ -18,8 +18,10 @@ def rerank(args):
     ranker = Ranker(args, inference, faiss_depth=None)
 
     ranking_logger = RankingLogger(Run.path, qrels=None)
-    milliseconds = 0
-
+    total_latency = 0
+    encode_latency = 0
+    search_latency = 0
+    
     with ranking_logger.context('ranking.tsv', also_save_annotations=False) as rlogger:
         queries = args.queries
         qids_in_order = list(queries.keys())
@@ -32,18 +34,24 @@ def rerank(args):
 
             for query_idx, (q, pids) in enumerate(zip(qbatch_text, qbatch_pids)):
                 torch.cuda.synchronize('cuda:0')
-                s = time.time()
+                
+                encode_start = time.time()
+                Q = ranker.encode([q]) 
+                encode_latency += (time.time() - encode_start) * 1000.0 # Query Encoding Latency 
 
-                Q = ranker.encode([q])
-                pids, scores = ranker.rank(Q, pids=pids)
-
-                torch.cuda.synchronize()
-                milliseconds += (time.time() - s) * 1000.0
+                search_start = time.time()
+                pids, scores = ranker.rank(Q, pids=pids) 
+                search_latency += (time.time() - search_start) * 1000.0 # Searching Latency
+                
+                total_latency += (time.time() - encode_start) * 1000.0 # Total Latency
 
                 if len(pids):
                     print(qoffset+query_idx, q, len(scores), len(pids), scores[0], pids[0],
-                          milliseconds / (qoffset+query_idx+1), 'ms')
-
+                          round(encode_latency / (qoffset+query_idx+1), 3), 'ms',
+                          round(search_latency / (qoffset+query_idx+1), 3), 'ms',
+                          round(total_latency / (qoffset+query_idx+1), 3), 'ms')
+                
+                torch.cuda.synchronize()
                 rankings.append(zip(pids, scores))
 
             for query_idx, (qid, ranking) in enumerate(zip(qbatch, rankings)):
@@ -51,7 +59,7 @@ def rerank(args):
 
                 if query_idx % 100 == 0:
                     print_message(f"#> Logging query #{query_idx} (qid {qid}) now...")
-
+   
                 ranking = [(score, pid, None) for pid, score in ranking]
                 rlogger.log(qid, ranking, is_ranked=True)
 

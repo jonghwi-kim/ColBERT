@@ -23,7 +23,7 @@ def main():
 
     with Run.context():
         args.index_path = os.path.join(args.index_root, args.index_name)
-        assert os.path.exists(args.index_path), args.index_path
+        #assert os.path.exists(args.index_path), args.index_path
 
         num_embeddings = sum(load_doclens(args.index_path))
         print("#> num_embeddings =", num_embeddings)

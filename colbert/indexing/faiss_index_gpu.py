@@ -16,6 +16,8 @@ from colbert.utils.utils import print_message
 class FaissIndexGPU():
     def __init__(self):
         self.ngpu = faiss.get_num_gpus()
+        
+        print(self.ngpu)
 
         if self.ngpu == 0:
             return
