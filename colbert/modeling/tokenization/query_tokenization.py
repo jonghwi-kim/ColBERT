@@ -20,7 +20,7 @@ class QueryTokenizer():
         print(f'query token : {self.Q_marker_token_id}, {self.Q_marker_token}')
 
         assert self.Q_marker_token_id == 901630
-        assert self.mask_token_id == 901629
+        assert self.mask_token_id == 901628
 
     def tokenize(self, batch_text, add_special_tokens=False):
         assert type(batch_text) in [list, tuple], (type(batch_text))
