@@ -46,6 +46,7 @@ def train(args):
                                       dim=args.dim,
                                       similarity_metric=args.similarity,
                                       mask_punctuation=args.mask_punctuation)
+    colbert.roberta.resize_token_embeddings(len(colbert.tokenizer))
 
     if args.checkpoint is not None:
         assert args.resume_optimizer is False, "TODO: This would mean reload optimizer too."
@@ -96,7 +97,7 @@ def train(args):
                 scores = colbert(queries, passages).view(2, -1).permute(1, 0)
                 loss = criterion(scores, labels[:scores.size(0)])
                 loss = loss / args.accumsteps
-
+ 
             if args.rank < 1 and batch_idx % 100 == 0:
                 print_progress(scores)
 
