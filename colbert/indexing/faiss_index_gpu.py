@@ -113,7 +113,7 @@ class FaissIndexGPU():
             if self.max_add > 0 and self.gpu_index.ntotal > self.max_add:
                 self._flush_to_cpu(index, nb, offset)
 
-            print('\r%d/%d (%.3f s)  ' % (i0, nb, time.time() - t0), end=' ')
+            #print('\r%d/%d (%.3f s)  ' % (i0, nb, time.time() - t0), end=' ')
             sys.stdout.flush()
 
         if self.gpu_index.ntotal > 0:
