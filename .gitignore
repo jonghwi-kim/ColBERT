@@ -2,6 +2,9 @@ experiments/
 checkpoints/
 data/
 logs/
+indexes/
+mlruns/
+sbatch/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
