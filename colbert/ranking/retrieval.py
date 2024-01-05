@@ -43,7 +43,7 @@ def retrieve(args):
                 pids, scores = ranker.rank(Q) 
                 search_latency += (time.time() - search_start) * 1000.0 # Searching Latency
                 
-                total_latency += (time.time() - encode_start) * 1000.0 # Total Latency
+                total_latency = encode_latency + search_latency  # Total Latency
                 
                 if len(pids):
                     print(qoffset+query_idx, q, len(scores), len(pids), scores[0], pids[0],
