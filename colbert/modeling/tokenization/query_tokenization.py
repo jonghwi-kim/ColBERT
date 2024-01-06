@@ -11,7 +11,7 @@ class QueryTokenizer():
         self.tok.add_tokens(['[unused2]'])
         self.query_maxlen = query_maxlen
 
-        self.Q_marker_token, self.Q_marker_token_id = '[Q]', 901630
+        self.Q_marker_token, self.Q_marker_token_id = '[Q]', 901629
         self.cls_token, self.cls_token_id = self.tok.cls_token, self.tok.cls_token_id
         self.sep_token, self.sep_token_id = self.tok.sep_token, self.tok.sep_token_id
         self.mask_token, self.mask_token_id = self.tok.mask_token, self.tok.mask_token_id
@@ -19,7 +19,7 @@ class QueryTokenizer():
         print(f'special token list : {self.tok.all_special_tokens}')
         print(f'query token : {self.Q_marker_token_id}, {self.Q_marker_token}')
 
-        assert self.Q_marker_token_id == 901630
+        assert self.Q_marker_token_id == 901629
         assert self.mask_token_id == 901628
 
     def tokenize(self, batch_text, add_special_tokens=False):
