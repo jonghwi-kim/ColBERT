@@ -20,6 +20,33 @@ class LazyBatcher():
         self.triples = self._load_triples(args.triples, rank, nranks)
         self.queries = self._load_queries(args.queries)
         self.collection = self._load_collection(args.collection)
+        
+        if args.using_lexicon:
+            self.lexicons = self._load_lexicon(args.lexicon, args.target_query_lang, args.target_doc_lang)
+            
+    def _load_lexicon(self, lexicon_dir, query_lang, doc_lang):
+        
+        # Now, lexicon is a single bilingual dictionary 
+        # (e.g., {en -> fr}, {en -> de}, {en -> es}, en -> it}, {en -> ru}, {en -> zh}, ... )
+        print_message("#> Loading lexicons...")
+        
+        assert query_lang != 'en' or doc_lang != 'en', "You should use at least one bilingual lexicon (e.g. en -> non-en)"
+        
+        lexicons = {}
+        if query_lang != 'en': lexicons['lexicon_for_query'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{query_lang}_token_dict_csls.json")))
+        if doc_lang != 'en': lexicons['lexicon_for_doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{doc_lang}_token_dict_csls.json")))
+
+        # To Do : implementation of using multiple lexicons 
+        # (e.g., en -> {fr, de, es, it, ru, zh, ...} )
+        
+        #for filename in os.listdir(lexicon_dir):            
+        #     with open(os.path.join(lexicon_dir, filename)) as f:
+        #         for line in f:
+        #             word, idx = line.strip().split('\t')
+        #             idx = int(idx)
+        #             lexicon[word] = idx
+                    
+        return lexicons
 
     def _load_triples(self, path, rank, nranks):
         """
@@ -98,7 +125,7 @@ class LazyBatcher():
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
 
-        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps)
+        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.lexicons)
 
     def skip_to_batch(self, batch_idx, intended_batch_size):
         Run.warn(f'Skipping to batch #{batch_idx} (with intended_batch_size = {intended_batch_size}) for training.')

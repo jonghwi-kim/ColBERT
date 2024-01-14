@@ -1,6 +1,6 @@
 import torch
 
-from transformers import XLMRobertaTokenizer
+from transformers import XLMRobertaTokenizer, AutoTokenizer
 from colbert.modeling.tokenization.utils import _split_into_batches
 
 
