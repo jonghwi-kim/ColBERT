@@ -104,8 +104,8 @@ def train(args):
                 
                 token_alignment_loss = token_alignment_loss / args.accumsteps
                 #total_loss = alpha*ir_loss + (1-alpha)*token_alignment_loss
-                ir_loss = alpha*ir_loss
-                token_alignment_loss = (1-alpha)*token_alignment_loss
+                #ir_loss = alpha*ir_loss
+                #token_alignment_loss = (1-alpha)*token_alignment_loss
                 total_loss = ir_loss + token_alignment_loss
                 
             if args.rank < 1 and batch_idx % 100 == 0:

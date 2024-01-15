@@ -53,7 +53,11 @@ def make_batch(query_batches, positive_batches, negative_batches, code_switched_
         D = (torch.cat((p_ids, n_ids)), torch.cat((p_mask, n_mask)))
 
         CS_Q = (cs_q_ids, q_mask, cs_q_idx)
-        CS_D = (torch.cat((cs_p_ids, cs_n_ids)), torch.cat((p_mask, n_mask)), torch.cat((cs_p_idx, cs_n_idx)))
+        if cs_p_ids is not None:
+            CS_D = (torch.cat((cs_p_ids, cs_n_ids)), torch.cat((p_mask, n_mask)), torch.cat((cs_p_idx, cs_n_idx)))
+        else:
+            CS_D = (cs_p_ids, cs_n_ids)
+        
         #CS_P = (cs_p_ids, p_mask, cs_p_idx)
         #CS_N = (cs_n_ids, n_mask, cs_n_idx)
         batches.append((Q, D, CS_Q, CS_D))

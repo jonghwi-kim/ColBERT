@@ -45,7 +45,7 @@ class ColBERT(RobertaPreTrainedModel):
         doc_rep = self.doc(*D)
         
         if self.align_obj:
-            if CS_Q[2] is None:
+            if CS_Q[0] is None:
                 cs_query_rep = query_rep.clone()
                 query_token_alignment_loss = 0.0
                 n_cs = 0
@@ -55,7 +55,7 @@ class ColBERT(RobertaPreTrainedModel):
                 cs_query_rep = cs_query_rep.repeat(2,1,1)
                 n_cs = 1
                 
-            if CS_D[2] is None:
+            if CS_D[0] is None:
                 cs_doc_rep = doc_rep.clone()
                 doc_token_alignment_loss = 0.0
             else:
