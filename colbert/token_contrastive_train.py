@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--align_obj", action="store_true")
     parser.add_argument("--alpha", type=float, default=0.5, help="Weight for the alignment loss.")
     parser.add_argument("--using_lexicon", action="store_true")
+    parser.add_argument("--ir_triplet_type", choices=['orginal', 'codeswitched', 'shuffled'], default='original', help="Triplet data type for IR objective (original english triplet or code-switched triplet or shuffled (original & code-switched) triplet)")  
     parser.add_argument("--target_query_lang", default="en", help="Target Query Code-Switched Language (EN -> Target Lang)" )
     parser.add_argument("--target_doc_lang", default="en", help="Target Document Code-Switched Language (EN -> Target Lang)" )
     parser.add_argument("--lexicon", help="Folder containing bilingual lexicon files (run extract_bilingual_dictionary_from_mPLM_vocab.py first)")

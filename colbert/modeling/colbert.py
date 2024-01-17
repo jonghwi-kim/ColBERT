@@ -1,3 +1,4 @@
+import random
 import string
 import torch
 import torch.nn as nn
@@ -39,7 +40,10 @@ class ColBERT(RobertaPreTrainedModel):
         self.linear = nn.Linear(config.hidden_size, dim, bias=False)
         self.init_weights()
 
-    def forward(self, Q, D, CS_Q, CS_D):
+    def forward(self, Q, D, CS_Q, CS_D, ir_triplet_type='original'):
+        ### To Do ###
+        # Reduce the length of forward pass codes 
+        # In particular, the codes for computing alignment loss
         
         query_rep = self.query(*Q)
         doc_rep = self.doc(*D)
@@ -63,7 +67,13 @@ class ColBERT(RobertaPreTrainedModel):
                 doc_token_alignment_loss = self.compute_alignment_loss(doc_rep, cs_doc_rep, cs_position=CS_D[2])
                 n_cs += 1
                 
-            ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
+            if ir_triplet_type =='original':
+                ir_score = self.max_sim_score(query_rep, cs_doc_rep)
+            elif ir_triplet_type == 'shuffled' and random.random() < 0.5:
+                ir_score = self.max_sim_score(query_rep, cs_doc_rep)
+            else:
+                ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
+            
             token_alignment_loss = (query_token_alignment_loss + doc_token_alignment_loss)/n_cs
             return ir_score, token_alignment_loss 
         

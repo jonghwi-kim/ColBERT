@@ -83,6 +83,8 @@ def train(args):
     ir_train_loss = 0.0
     ta_train_loss = 0.0
     start_batch_idx = 0
+    avg_num_query_cs_tokens, avg_num_query_tokens = 0, 0
+    avg_num_doc_cs_tokenss, avg_num_doc_tokens = 0, 0
 
     if args.resume: 
         assert args.checkpoint is not None
@@ -94,9 +96,9 @@ def train(args):
         this_batch_ir_loss = 0.0
         this_batch_ta_loss = 0.0
 
-        for en_queries, en_passages, cs_queries, cs_docs in BatchSteps:
+        for en_queries, en_passages, cs_queries, cs_docs in BatchSteps[0]:
             with amp.context():
-                ir_scores, token_alignment_loss = colbert(en_queries, en_passages, cs_queries, cs_docs)
+                ir_scores, token_alignment_loss = colbert(en_queries, en_passages, cs_queries, cs_docs, args.ir_triplet_type)
                 ir_scores = ir_scores.view(2, -1).permute(1, 0)
                 ir_loss = criterion(ir_scores, labels[:ir_scores.size(0)])
                 ir_loss = ir_loss / args.accumsteps
@@ -118,6 +120,14 @@ def train(args):
             this_batch_ta_loss += token_alignment_loss.item()
 
         amp.step(colbert, optimizer)
+        
+        if args.target_query_lang != 'en':
+            avg_num_query_cs_tokens += np.mean(BatchSteps[1]['query']['num_cs_token'])
+            avg_num_query_tokens += np.mean(BatchSteps[1]['query']['num_token'])
+            
+        if args.target_doc_lang != 'en':
+            avg_num_doc_cs_tokenss += (np.mean(BatchSteps[1]['positive']['num_cs_token']) + np.mean(BatchSteps[1]['negative']['num_cs_token']))/2
+            avg_num_doc_tokens += (np.mean(BatchSteps[1]['positive']['num_token']) + np.mean(BatchSteps[1]['negative']['num_token']))/2
 
         if args.rank < 1:
             avg_ir_loss = ir_train_loss / (batch_idx+1)
@@ -127,6 +137,15 @@ def train(args):
             elapsed = float(time.time() - start_time)
 
             log_to_mlflow = (batch_idx % 20 == 0)
+            
+            if args.target_query_lang != 'en':
+                Run.log_metric('train/avg_num_query_cs', avg_num_query_cs_tokens/(batch_idx+1), step=batch_idx, log_to_mlflow=log_to_mlflow)
+                Run.log_metric('train/avg_percentage_query_cs', avg_num_query_cs_tokens/avg_num_query_tokens, step=batch_idx, log_to_mlflow=log_to_mlflow)
+            
+            if args.target_doc_lang != 'en':
+                Run.log_metric('train/avg_num_doc_cs', avg_num_doc_cs_tokenss/(batch_idx+1), step=batch_idx, log_to_mlflow=log_to_mlflow)
+                Run.log_metric('train/avg_percentage_doc_cs', avg_num_doc_cs_tokenss/avg_num_doc_tokens, step=batch_idx, log_to_mlflow=log_to_mlflow)
+            
             Run.log_metric('train/avg_total_loss', (avg_ir_loss+avg_ta_loss), step=batch_idx, log_to_mlflow=log_to_mlflow)
             Run.log_metric('train/avg_ir_loss', avg_ir_loss, step=batch_idx, log_to_mlflow=log_to_mlflow)
             Run.log_metric('train/avg_ta_loss', avg_ta_loss, step=batch_idx, log_to_mlflow=log_to_mlflow)
