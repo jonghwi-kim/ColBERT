@@ -47,7 +47,7 @@ class ColBERT(RobertaPreTrainedModel):
         if self.align_obj:
             if CS_Q[0] is None:
                 cs_query_rep = query_rep.clone()
-                query_token_alignment_loss = 0.0
+                query_token_alignment_loss = 0
                 n_cs = 0
             else:
                 cs_query_rep = self.query(*CS_Q[:2])
@@ -57,7 +57,7 @@ class ColBERT(RobertaPreTrainedModel):
                 
             if CS_D[0] is None:
                 cs_doc_rep = doc_rep.clone()
-                doc_token_alignment_loss = 0.0
+                doc_token_alignment_loss = 0
             else:
                 cs_doc_rep = self.doc(*CS_D[:2])
                 doc_token_alignment_loss = self.compute_alignment_loss(doc_rep, cs_doc_rep, cs_position=CS_D[2])
@@ -105,7 +105,7 @@ class ColBERT(RobertaPreTrainedModel):
         if self.similarity_metric =='cosine':
             return torch.matmul(origin, codeswitched.transpose(1,2))
         elif self.similarity_metric =='l2':
-            return -1*((origin.unsqueeze(2) - codeswitched.unsqueeze(1))**2).sum(-1)
+            return -1.0*((origin.unsqueeze(2) - codeswitched.unsqueeze(1))**2).sum(-1)
 
     def max_sim_score(self, Q, D):
         if self.similarity_metric == 'cosine':

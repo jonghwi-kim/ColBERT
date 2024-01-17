@@ -29,8 +29,10 @@ def main():
     #parser.add_argument("--codeswitched_triplet_s_dir", help="Output directory for writing code-switched training data.", required=True)
     args = parser.parse()
 
-    args.target_query_lang = long2short[args.target_query_lang]
-    args.target_doc_lang = long2short[args.target_doc_lang]
+    if len(args.target_query_lang) != 2 :
+        args.target_query_lang = long2short[args.target_query_lang]
+    if len(args.target_doc_lang) != 2 :
+        args.target_doc_lang = long2short[args.target_doc_lang]
 
     assert args.bsize % args.accumsteps == 0, ((args.bsize, args.accumsteps),
                                                "The batch size must be divisible by the number of gradient accumulation steps.")

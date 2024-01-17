@@ -83,7 +83,6 @@ def train(args):
     ir_train_loss = 0.0
     ta_train_loss = 0.0
     start_batch_idx = 0
-    alpha = args.alpha
 
     if args.resume: 
         assert args.checkpoint is not None
@@ -103,9 +102,8 @@ def train(args):
                 ir_loss = ir_loss / args.accumsteps
                 
                 token_alignment_loss = token_alignment_loss / args.accumsteps
-                #total_loss = alpha*ir_loss + (1-alpha)*token_alignment_loss
-                #ir_loss = alpha*ir_loss
-                #token_alignment_loss = (1-alpha)*token_alignment_loss
+                ir_loss = args.alpha*ir_loss
+                token_alignment_loss = (1-args.alpha)*token_alignment_loss
                 total_loss = ir_loss + token_alignment_loss
                 
             if args.rank < 1 and batch_idx % 100 == 0:

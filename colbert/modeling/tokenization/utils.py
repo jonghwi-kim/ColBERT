@@ -1,5 +1,6 @@
 import torch
 import random
+import numpy as np
 
 def tensorize_triples(query_tokenizer, doc_tokenizer, queries, positives, negatives, bsize, lexicons=None):
     assert len(queries) == len(positives) == len(negatives)
@@ -26,24 +27,21 @@ def tensorize_triples(query_tokenizer, doc_tokenizer, queries, positives, negati
 
     stat = {}
     if 'lexicon_for_query' in lexicons.keys():
-        code_switched_query, query_cs_index, query_token_count, query_cs_count = code_switch_bilingually(query_tokenizer, Q_ids, lexicons['lexicon_for_query'], chance=0.5)
+        code_switched_query, query_cs_index, stat['query'] = code_switch_bilingually(query_tokenizer, Q_ids, lexicons['lexicon_for_query'], chance=0.5)
         code_switched_query_batches = _split_into_batches(code_switched_query, Q_mask, bsize, query_cs_index)
     else:
         code_switched_query_batches = [(None,None)]
 
     if 'lexicon_for_doc' in lexicons.keys():
-        code_switched_positive_ids, pos_cs_index, pos_token_count, pos_cs_count = code_switch_bilingually(doc_tokenizer, positive_ids, lexicons['lexicon_for_doc'], chance=0.5)
-        code_switched_negative_ids, neg_cs_index, neg_token_count, neg_cs_count = code_switch_bilingually(doc_tokenizer, negative_ids, lexicons['lexicon_for_doc'], chance=0.5)
+        code_switched_positive_ids, pos_cs_index, stat['positive'] = code_switch_bilingually(doc_tokenizer, positive_ids, lexicons['lexicon_for_doc'], chance=0.5)
+        code_switched_negative_ids, neg_cs_index, stat['negative'] = code_switch_bilingually(doc_tokenizer, negative_ids, lexicons['lexicon_for_doc'], chance=0.5)
         code_switched_positive_batches = _split_into_batches(code_switched_positive_ids, positive_mask, bsize, pos_cs_index)
         code_switched_negative_batches = _split_into_batches(code_switched_negative_ids, negative_mask, bsize, neg_cs_index)
     else:
         code_switched_positive_batches = [(None,None)]
         code_switched_negative_batches = [(None,None)]
-    #stat['query'] = {'token_count': query_token_count, 'cs_count': query_cs_count}
-    #stat['positive'] = {'token_count': pos_token_count, 'cs_count': pos_cs_count}
-    #stat['negative'] = {'token_count': neg_token_count, 'cs_count': neg_cs_count}
 
-    return make_batch(query_batches, positive_batches, negative_batches, code_switched_query_batches, code_switched_positive_batches, code_switched_negative_batches)
+    return make_batch(query_batches, positive_batches, negative_batches, code_switched_query_batches, code_switched_positive_batches, code_switched_negative_batches), stat
 
 def make_batch(query_batches, positive_batches, negative_batches, code_switched_query_batches=None, code_switched_positive_batches=None, code_switched_negative_batches=None):
 
@@ -57,9 +55,7 @@ def make_batch(query_batches, positive_batches, negative_batches, code_switched_
             CS_D = (torch.cat((cs_p_ids, cs_n_ids)), torch.cat((p_mask, n_mask)), torch.cat((cs_p_idx, cs_n_idx)))
         else:
             CS_D = (cs_p_ids, cs_n_ids)
-        
-        #CS_P = (cs_p_ids, p_mask, cs_p_idx)
-        #CS_N = (cs_n_ids, n_mask, cs_n_idx)
+    
         batches.append((Q, D, CS_Q, CS_D))
 
     return batches
@@ -84,8 +80,9 @@ def code_switch_bilingually(tokenizer, token_ids, lexicon, chance=0.5):
                 cs_index[query_idx, token_idx] = 1
         token_count_list.append(token_count)
         cs_count_list.append(cs_count)
-      
-    return code_switched_token_ids, cs_index, token_count_list, cs_count_list
+    
+    stat = {'num_token': np.mean(token_count_list), 'num_cs_token': np.mean(cs_count_list)}
+    return code_switched_token_ids, cs_index, stat
 
 def _sort_by_length(ids, mask, bsize):
     if ids.size(0) <= bsize:
