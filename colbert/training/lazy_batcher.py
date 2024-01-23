@@ -16,13 +16,15 @@ class LazyBatcher():
         self.doc_tokenizer = DocTokenizer(args.doc_maxlen)
         self.tensorize_triples = partial(tensorize_triples, self.query_tokenizer, self.doc_tokenizer)
         self.position = 0
+        self.switching_prob = args.switching_prob
+        self.seed = args.seed
 
         self.triples = self._load_triples(args.triples, rank, nranks)
         self.queries = self._load_queries(args.queries)
         self.collection = self._load_collection(args.collection)
         
-        if args.using_lexicon:
-            self.lexicons = self._load_lexicon(args.lexicon, args.target_query_lang, args.target_doc_lang)
+        if args.lexicon_dir is not None:
+            self.lexicons = self._load_lexicon(args.lexicon_dir, args.target_query_lang, args.target_doc_lang)
             
     def _load_lexicon(self, lexicon_dir, query_lang, doc_lang):
         
@@ -33,8 +35,12 @@ class LazyBatcher():
         assert query_lang != 'en' or doc_lang != 'en', "You should use at least one bilingual lexicon (e.g. en -> non-en)"
         
         lexicons = {}
-        if query_lang != 'en': lexicons['lexicon_for_query'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{query_lang}_token_dict_csls.json")))
-        if doc_lang != 'en': lexicons['lexicon_for_doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{doc_lang}_token_dict_csls.json")))
+        if query_lang != 'en': 
+            lexicons['lexicon_for_query'] = ujson.load(open(lexicon_dir))
+            #lexicons['lexicon_for_query'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{query_lang}_token_dict_csls.json")))
+        if doc_lang != 'en': 
+            lexicons['lexicon_for_doc'] = ujson.load(open(lexicon_dir))
+            #lexicons['lexicon_for_doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en_to_{doc_lang}_token_dict_csls.json")))
 
         # To Do : implementation of using multiple lexicons 
         # (e.g., en -> {fr, de, es, it, ru, zh, ...} )
@@ -125,7 +131,7 @@ class LazyBatcher():
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
 
-        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.lexicons)
+        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.switching_prob, self.seed, self.lexicons)
 
     def skip_to_batch(self, batch_idx, intended_batch_size):
         Run.warn(f'Skipping to batch #{batch_idx} (with intended_batch_size = {intended_batch_size}) for training.')

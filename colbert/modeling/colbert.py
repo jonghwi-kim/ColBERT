@@ -42,42 +42,28 @@ class ColBERT(RobertaPreTrainedModel):
 
     def forward(self, Q, D, CS_Q, CS_D, ir_triplet_type='original'):
         ### To Do ###
-        # Reduce the length of forward pass codes 
-        # In particular, the codes for computing alignment loss
+        # Organize the code below. Quite messy :(
+        # In particular, the codes for diverse contrastive loss
         
         query_rep = self.query(*Q)
         doc_rep = self.doc(*D)
+
+        if self.align_obj == 'token_contrast':
+            contrastive_loss, cs_query_rep, cs_doc_rep = self.compute_token_contrastive_loss(query_rep, doc_rep, CS_Q, CS_D)
+        elif self.align_obj == 'colbert_contrast':        
+            contrastive_loss, cs_query_rep, cs_doc_rep = self.compute_colbert_contrastive_loss(query_rep, doc_rep, CS_Q, CS_D)
+        else:
+            contrastive_loss = 0
         
-        if self.align_obj:
-            if CS_Q[0] is None:
-                cs_query_rep = query_rep.clone()
-                query_token_alignment_loss = 0
-                n_cs = 0
-            else:
-                cs_query_rep = self.query(*CS_Q[:2])
-                query_token_alignment_loss = self.compute_alignment_loss(query_rep, cs_query_rep, cs_position=CS_Q[2])
-                cs_query_rep = cs_query_rep.repeat(2,1,1)
-                n_cs = 1
-                
-            if CS_D[0] is None:
-                cs_doc_rep = doc_rep.clone()
-                doc_token_alignment_loss = 0
-            else:
-                cs_doc_rep = self.doc(*CS_D[:2])
-                doc_token_alignment_loss = self.compute_alignment_loss(doc_rep, cs_doc_rep, cs_position=CS_D[2])
-                n_cs += 1
-                
-            if ir_triplet_type =='original':
-                ir_score = self.max_sim_score(query_rep, cs_doc_rep)
-            elif ir_triplet_type == 'shuffled' and random.random() < 0.5:
-                ir_score = self.max_sim_score(query_rep, cs_doc_rep)
-            else:
-                ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
-            
-            token_alignment_loss = (query_token_alignment_loss + doc_token_alignment_loss)/n_cs
-            return ir_score, token_alignment_loss 
+        if ir_triplet_type =='original':
+            ir_score = self.max_sim_score(query_rep, doc_rep)
+        elif ir_triplet_type == 'shuffled' and random.random() < 0.5:
+            ir_score = self.max_sim_score(query_rep, doc_rep)
+        else:
+            ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
         
-        return self.max_sim_score(query_rep, doc_rep)
+        return ir_score, contrastive_loss 
+    
 
     def query(self, input_ids, attention_mask):
         input_ids, attention_mask = input_ids.to(DEVICE), attention_mask.to(DEVICE)
@@ -99,17 +85,88 @@ class ColBERT(RobertaPreTrainedModel):
         if not keep_dims:
             D, mask = D.cpu().to(dtype=torch.float16), mask.cpu().bool().squeeze(-1)
             D = [d[mask[idx]] for idx, d in enumerate(D)]
+
         return D
     
-    def compute_alignment_loss(self, origin, codeswitched, cs_position):
+    def compute_colbert_contrastive_loss(self, query_rep, doc_rep, CS_Q, CS_D):
+        if CS_Q[0] is None:
+            cs_query_rep = query_rep.clone()
+            query_colbert_contrastive_loss = 0
+            n_cs = 0
+        else:
+            cs_query_rep = self.query(*CS_Q[:2])
+            query_colbert_contrastive_loss = self.colbert_contrastive_loss(query_rep, cs_query_rep)
+            cs_query_rep = cs_query_rep.repeat(2,1,1)
+            n_cs = 1
+        
+        if CS_D[0] is None:
+            cs_doc_rep = doc_rep.clone()
+            doc_colbert_contrastive_loss = 0
+        else:
+            cs_doc_rep = self.doc(*CS_D[:2])
+            doc_colbert_contrastive_loss = self.colbert_contrastive_loss(doc_rep, cs_doc_rep)
+            n_cs += 1
+            
+        colbert_contrastive_loss = (query_colbert_contrastive_loss + doc_colbert_contrastive_loss)/n_cs
+        return colbert_contrastive_loss, cs_query_rep, cs_doc_rep
+    
+    def colbert_contrastive_loss(self, origin, codeswitched):
+        
+        bsz, _, _ = codeswitched.size()
+        labels = torch.cat([torch.arange(bsz) for i in range(2)], dim=0)
+        labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float().to(DEVICE)
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(DEVICE)
+        labels = labels[~mask].view(labels.shape[0], -1)
+
+        org_cs = torch.concat((origin[:bsz], codeswitched))
+        max_sim_matrix = (org_cs.unsqueeze(0) @ org_cs.permute(0, 2, 1).unsqueeze(1)).max(3).values.sum(2)
+        max_sim_matrix = max_sim_matrix[~mask].view(max_sim_matrix.shape[0], -1)
+        
+        positives = max_sim_matrix[labels.bool()].view(labels.shape[0], -1)
+        negatives = max_sim_matrix[~labels.bool()].view(max_sim_matrix.shape[0], -1)
+        
+        logits = torch.cat([positives, negatives], dim=1)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(DEVICE)
+        return torch.nn.CrossEntropyLoss()(logits, labels)
+    
+    def compute_sent_contrastive_loss(self, query_rep, doc_rep, CS_Q, CS_D):
+        return
+    
+    def sent_contrastive_los(self):
+        return
+    
+    def compute_token_contrastive_loss(self, query_rep, doc_rep, CS_Q, CS_D):
+        
+        if CS_Q[0] is None:
+            cs_query_rep = query_rep.clone()
+            query_token_contrastive_loss = 0
+            n_cs = 0
+        else:
+            cs_query_rep = self.query(*CS_Q[:2])
+            query_token_contrastive_loss = self.token_contrastive_loss(query_rep, cs_query_rep, cs_position=CS_Q[2])
+            cs_query_rep = cs_query_rep.repeat(2,1,1)
+            n_cs = 1
+        
+        if CS_D[0] is None:
+            cs_doc_rep = doc_rep.clone()
+            doc_token_contrastive_loss = 0
+        else:
+            cs_doc_rep = self.doc(*CS_D[:2])
+            doc_token_contrastive_loss = self.token_contrastive_loss(doc_rep, cs_doc_rep, cs_position=CS_D[2])
+            n_cs += 1
+            
+        token_contrastive_loss = (query_token_contrastive_loss + doc_token_contrastive_loss)/n_cs
+        return token_contrastive_loss, cs_query_rep, cs_doc_rep
+    
+    def token_contrastive_loss(self, origin, codeswitched, cs_position):
         bsz, seqlen, _ = codeswitched.size()
         token_distance_matrix = self.distance_matrix(origin[:bsz], codeswitched)
         logprobs = F.log_softmax(token_distance_matrix.view(-1, seqlen), dim=-1)
         gold = torch.arange(seqlen).view(-1,).expand(bsz, seqlen).contiguous().view(-1).cuda(token_distance_matrix.get_device())
-        token_alignment_loss = -logprobs.gather(dim=-1, index=gold.unsqueeze(1)).squeeze(1)
-        token_alignment_loss = token_alignment_loss.view(bsz, seqlen) * cs_position.cuda(token_distance_matrix.get_device())
-        token_alignment_loss = torch.sum(token_alignment_loss) / cs_position.sum()
-        return token_alignment_loss
+        token_contrastive_loss = -logprobs.gather(dim=-1, index=gold.unsqueeze(1)).squeeze(1)
+        token_contrastive_loss = token_contrastive_loss.view(bsz, seqlen) * cs_position.cuda(token_distance_matrix.get_device())
+        token_contrastive_loss = torch.sum(token_contrastive_loss) / cs_position.sum()
+        return token_contrastive_loss
     
     def distance_matrix(self, origin, codeswitched):
         if self.similarity_metric =='cosine':

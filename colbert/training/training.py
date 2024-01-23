@@ -74,6 +74,9 @@ def train(args):
 
     optimizer = AdamW(filter(lambda p: p.requires_grad, colbert.parameters()), lr=args.lr, eps=1e-8)
     optimizer.zero_grad()
+    
+    #ta_loss_optimizer = AdamW(filter(lambda p: p.requires_grad, colbert.parameters()), lr=1e-07, eps=1e-8)
+    #ta_loss_optimizer.zero_grad()
 
     amp = MixedPrecisionManager(args.amp)
     criterion = nn.CrossEntropyLoss()
@@ -102,7 +105,7 @@ def train(args):
                 ir_scores = ir_scores.view(2, -1).permute(1, 0)
                 ir_loss = criterion(ir_scores, labels[:ir_scores.size(0)])
                 ir_loss = ir_loss / args.accumsteps
-                
+
                 token_alignment_loss = token_alignment_loss / args.accumsteps
                 ir_loss = args.alpha*ir_loss
                 token_alignment_loss = (1-args.alpha)*token_alignment_loss
