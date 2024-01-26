@@ -112,7 +112,7 @@ def train(args):
                 total_loss = ir_loss + token_alignment_loss
                 
             if args.rank < 1 and batch_idx % 100 == 0:
-                print_progress(ir_scores)
+                avg_diff_score_btw_pos_neg = print_progress(ir_scores)
 
             amp.backward(total_loss)
 
@@ -162,4 +162,5 @@ def train(args):
 
             manage_checkpoints(args, colbert, optimizer, batch_idx+1)
             if batch_idx % 100 == 0:
+                Run.log_metric('train/avg_diff_score_btw_pos_neg', avg_diff_score_btw_pos_neg, step=batch_idx, log_to_mlflow=log_to_mlflow)
                 print_message(batch_idx+1, (avg_ir_loss+avg_ta_loss), avg_ir_loss, avg_ta_loss)
