@@ -105,11 +105,14 @@ def train(args):
                 ir_scores = ir_scores.view(2, -1).permute(1, 0)
                 ir_loss = criterion(ir_scores, labels[:ir_scores.size(0)])
                 ir_loss = ir_loss / args.accumsteps
-
                 token_alignment_loss = token_alignment_loss / args.accumsteps
-                ir_loss = args.alpha*ir_loss
-                token_alignment_loss = (1-args.alpha)*token_alignment_loss
-                total_loss = ir_loss + token_alignment_loss
+    
+                if args.alpha is not None:
+                    ir_loss = args.alpha * ir_loss
+                    token_alignment_loss = (1-args.alpha) * token_alignment_loss
+                    total_loss = ir_loss + token_alignment_loss
+                else:
+                    total_loss = ir_loss + token_alignment_loss
                 
             if args.rank < 1 and batch_idx % 100 == 0:
                 avg_diff_score_btw_pos_neg = print_progress(ir_scores)

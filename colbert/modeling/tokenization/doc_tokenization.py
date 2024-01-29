@@ -52,8 +52,8 @@ class DocTokenizer():
         # add placehold for the [D] marker
         batch_text = ['. ' + x for x in batch_text]
 
-        obj = self.tok(batch_text, padding='longest', truncation='longest_first',
-                       return_tensors='pt', max_length=self.doc_maxlen)
+        #obj = self.tok(batch_text, padding='longest', truncation='longest_first', return_tensors='pt', max_length=self.doc_maxlen)
+        obj = self.tok(batch_text, padding='max_length', truncation=True, return_tensors='pt', max_length=self.doc_maxlen)
 
         ids, mask = obj['input_ids'], obj['attention_mask']
 

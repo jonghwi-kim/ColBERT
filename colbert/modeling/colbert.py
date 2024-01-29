@@ -61,7 +61,7 @@ class ColBERT(RobertaPreTrainedModel):
             ir_score = self.max_sim_score(query_rep, doc_rep)
         else:
             ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
-        
+                
         return ir_score, contrastive_loss 
     
 
@@ -103,8 +103,11 @@ class ColBERT(RobertaPreTrainedModel):
             cs_doc_rep = doc_rep.clone()
             doc_colbert_contrastive_loss = 0
         else:
+            bsz = int(CS_D[0].size(0)/2)
             cs_doc_rep = self.doc(*CS_D[:2])
-            doc_colbert_contrastive_loss = self.colbert_contrastive_loss(doc_rep, cs_doc_rep)
+            pos_doc_colbert_contrastive_loss = self.colbert_contrastive_loss(doc_rep[:bsz], cs_doc_rep[:bsz])
+            neg_doc_colbert_contrastive_loss = self.colbert_contrastive_loss(doc_rep[bsz:], cs_doc_rep[bsz:])
+            doc_colbert_contrastive_loss = (pos_doc_colbert_contrastive_loss + neg_doc_colbert_contrastive_loss)/2
             n_cs += 1
             
         colbert_contrastive_loss = (query_colbert_contrastive_loss + doc_colbert_contrastive_loss)/n_cs
@@ -112,22 +115,35 @@ class ColBERT(RobertaPreTrainedModel):
     
     def colbert_contrastive_loss(self, origin, codeswitched):
         
-        bsz, _, _ = codeswitched.size()
-        labels = torch.cat([torch.arange(bsz) for i in range(2)], dim=0)
+        bsz, seq_len, _ = codeswitched.size()
+        
+        labels = torch.arange(bsz)
+        #labels = torch.cat([torch.arange(bsz) for i in range(2)], dim=0)
+        
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float().to(DEVICE)
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(DEVICE)
-        labels = labels[~mask].view(labels.shape[0], -1)
+        #mask = torch.eye(labels.shape[0], dtype=torch.bool).to(DEVICE)
+        #labels = labels[~mask].view(labels.shape[0], -1)
 
-        org_cs = torch.concat((origin[:bsz], codeswitched))
-        max_sim_matrix = (org_cs.unsqueeze(0) @ org_cs.permute(0, 2, 1).unsqueeze(1)).max(3).values.sum(2)
-        max_sim_matrix = max_sim_matrix[~mask].view(max_sim_matrix.shape[0], -1)
+        #org_cs = torch.concat((origin[:bsz], codeswitched))
+        #max_sim_matrix = (org_cs.unsqueeze(0) @ org_cs.permute(0, 2, 1).unsqueeze(1)).max(3).values.sum(2)
+        #breakpoint()
+        max_sim_matrix_1 = (origin[:bsz].unsqueeze(0) @ codeswitched.permute(0, 2, 1).unsqueeze(1)).max(3).values.sum(2)/seq_len
+        max_sim_matrix_2 = (codeswitched.unsqueeze(0) @ origin[:bsz].permute(0, 2, 1).unsqueeze(1)).max(3).values.sum(2)/seq_len
+        #max_sim_matrix = max_sim_matrix[~mask].view(max_sim_matrix.shape[0], -1)
+
+        positives_1 = max_sim_matrix_1[labels.bool()].view(labels.shape[0], -1)
+        negatives_1 = max_sim_matrix_1[~labels.bool()].view(max_sim_matrix_1.shape[0], -1)
+        logits_1 = torch.cat([positives_1, negatives_1], dim=1)
         
-        positives = max_sim_matrix[labels.bool()].view(labels.shape[0], -1)
-        negatives = max_sim_matrix[~labels.bool()].view(max_sim_matrix.shape[0], -1)
+        positives_2 = max_sim_matrix_2[labels.bool()].view(labels.shape[0], -1)
+        negatives_2 = max_sim_matrix_2[~labels.bool()].view(max_sim_matrix_2.shape[0], -1)
+        logits_2 = torch.cat([positives_2, negatives_2], dim=1)
         
-        logits = torch.cat([positives, negatives], dim=1)
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(DEVICE)
-        return torch.nn.CrossEntropyLoss()(logits, labels)
+        labels = torch.zeros(logits_1.shape[0], dtype=torch.long).to(DEVICE)
+        
+        colbert_contrastive_loss = (torch.nn.CrossEntropyLoss()(logits_1, labels) + torch.nn.CrossEntropyLoss()(logits_2, labels))/2
+
+        return colbert_contrastive_loss
     
     def compute_sent_contrastive_loss(self, query_rep, doc_rep, CS_Q, CS_D):
         return
