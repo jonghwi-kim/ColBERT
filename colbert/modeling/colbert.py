@@ -53,7 +53,7 @@ class ColBERT(RobertaPreTrainedModel):
         elif self.align_obj == 'colbert_contrast':        
             contrastive_loss, cs_query_rep, cs_doc_rep = self.compute_colbert_contrastive_loss(query_rep, doc_rep, CS_Q, CS_D)
         else:
-            contrastive_loss = 0
+            contrastive_loss = torch.tensor(0.0)
         
         if ir_triplet_type =='original':
             ir_score = self.max_sim_score(query_rep, doc_rep)

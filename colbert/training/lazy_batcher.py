@@ -19,14 +19,16 @@ class LazyBatcher():
         self.position = 0
         self.switching_prob = args.switching_prob
         self.seed = args.seed
-        self.lexicon_types = args.lexicon_type.lower()
-
+        self.lexicon_type = args.lexicon_type
+        self.lexicons = {'query': None, 'doc': None}
+    
         self.triples = self._load_triples(args.triples, rank, nranks)
         self.queries = self._load_queries(args.queries)
         self.collection = self._load_collection(args.collection)
         
-        if self.lexicon_types is not None:
-            self.lexicons = self._load_lexicon(args.lexicon_type, args.lexicon_dir, args.target_query_lang, args.target_doc_lang)
+        if self.lexicon_type is not None:
+            self.lexicon_type = self.lexicon_type.lower()
+            self._load_lexicon(args.lexicon_type, args.lexicon_dir, args.target_query_lang, args.target_doc_lang)
             
     def _load_lexicon(self, lexicon_type, lexicon_dir, query_lang, doc_lang):
         
@@ -36,16 +38,15 @@ class LazyBatcher():
         
         assert query_lang != 'en' or doc_lang != 'en', "You should use at least one bilingual lexicon (e.g. en -> non-en)"
         
-        lexicons = {}
         if lexicon_type.lower() == 'mplm_vocab':
-            lexicons['query'] = ujson.load(open(lexicon_dir)) if query_lang != "en" else None
-            lexicons['doc'] = ujson.load(open(lexicon_dir)) if doc_lang != "en" else None
+            self.lexicons['query'] = ujson.load(open(lexicon_dir)) if query_lang != "en" else None
+            self.lexicons['doc'] = ujson.load(open(lexicon_dir)) if doc_lang != "en" else None
         elif lexicon_type.lower() == 'muse_golden':
-            lexicons['query'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{query_lang}.json"))) if query_lang != "en" else None
-            lexicons['doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{doc_lang}.json"))) if doc_lang != "en" else None
+            self.lexicons['query'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{query_lang}.json"))) if query_lang != "en" else None
+            self.lexicons['doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{doc_lang}.json"))) if doc_lang != "en" else None
         elif lexicon_type.lower() == 'muse_emb':
-            lexicons['query'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{query_lang}_train_query.pkl"), 'rb'))
-            lexicons['doc'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{doc_lang}_train_corpus.pkl"), 'rb'))
+            self.lexicons['query'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{query_lang}_train_query.pkl"), 'rb'))
+            self.lexicons['doc'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{doc_lang}_train_corpus.pkl"), 'rb'))
         else:
             raise ValueError(f"Wrong lexicon type {lexicon_type}")
 
@@ -58,7 +59,6 @@ class LazyBatcher():
         #             word, idx = line.strip().split('\t')
         #             idx = int(idx)
         #             lexicon[word] = idx
-        return lexicons
 
     def _load_triples(self, path, rank, nranks):
         """
@@ -137,7 +137,7 @@ class LazyBatcher():
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
 
-        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.switching_prob, self.seed, self.lexicon_types, self.lexicons)
+        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.switching_prob, self.seed, self.lexicon_type, self.lexicons)
 
     def skip_to_batch(self, batch_idx, intended_batch_size):
         Run.warn(f'Skipping to batch #{batch_idx} (with intended_batch_size = {intended_batch_size}) for training.')

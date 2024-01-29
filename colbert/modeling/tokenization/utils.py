@@ -4,7 +4,7 @@ import numpy as np
 from colbert.modeling.tokenization.codeswtiching_method import golden_dictionary_codeswitch, mplm_dictionary_codeswitch
 
 def tensorize_triples(query_tokenizer, doc_tokenizer, queries, positives, negatives, bsize, 
-                      switching_prob, seed, lexicon_types=None, lexicons=None):
+                      switching_prob, seed, lexicon_type=None, lexicons=None):
     assert len(queries) == len(positives) == len(negatives)
     assert bsize is None or len(queries) % bsize == 0
     
@@ -34,25 +34,25 @@ def tensorize_triples(query_tokenizer, doc_tokenizer, queries, positives, negati
 
     stat = {}
     if lexicons['query'] is not None:
-        if lexicon_types == "muse_golden":
+        if lexicon_type == "muse_golden":
             code_switched_queries, stat['query'] = golden_dictionary_codeswitch(queries, lexicons['query'], switching_prob, seed)
             code_switched_query_ids, code_switched_query_mask = query_tokenizer.tensorize(code_switched_queries)
             code_switched_query_batches = _split_into_batches(code_switched_query_ids, code_switched_query_mask, bsize)
-        elif lexicon_types == "mplm_vocab":
+        elif lexicon_type == "mplm_vocab":
             code_switched_query, query_cs_index, stat['query'] = mplm_dictionary_codeswitch(query_tokenizer, Q_ids, lexicons['lexicon_for_query'], switching_prob, seed)
             code_switched_query_batches = _split_into_batches(code_switched_query, Q_mask, bsize, query_cs_index)
     else:
         code_switched_query_batches = [(None,None)]
 
     if lexicons['doc'] is not None:
-        if lexicon_types == "muse_golden":
+        if lexicon_type == "muse_golden":
             code_switched_positives, stat['positive'] = golden_dictionary_codeswitch(positives, lexicons['doc'], switching_prob, seed)
             code_switched_negatives, stat['negative'] = golden_dictionary_codeswitch(negatives, lexicons['doc'], switching_prob, seed)
             code_switched_positive_ids, code_switched_positive_mask = doc_tokenizer.tensorize(code_switched_positives)
             code_switched_negative_ids, code_switched_negative_mask = doc_tokenizer.tensorize(code_switched_negatives)    
             code_switched_positive_batches = _split_into_batches(code_switched_positive_ids, code_switched_positive_mask, bsize)
             code_switched_negative_batches = _split_into_batches(code_switched_negative_ids, code_switched_negative_mask, bsize)        
-        elif lexicon_types == "mplm_vocab":
+        elif lexicon_type == "mplm_vocab":
             code_switched_positive_ids, pos_cs_index, stat['positive'] = mplm_dictionary_codeswitch(doc_tokenizer, positive_ids, lexicons['lexicon_for_doc'], switching_prob, seed)
             code_switched_negative_ids, neg_cs_index, stat['negative'] = mplm_dictionary_codeswitch(doc_tokenizer, negative_ids, lexicons['lexicon_for_doc'], switching_prob, seed)
             code_switched_positive_batches = _split_into_batches(code_switched_positive_ids, positive_mask, bsize, pos_cs_index)
