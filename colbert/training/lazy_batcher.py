@@ -14,7 +14,7 @@ class LazyBatcher():
         self.bsize, self.accumsteps = args.bsize, args.accumsteps
 
         self.query_tokenizer = QueryTokenizer(args.query_maxlen)
-        self.doc_tokenizer = DocTokenizer(args.doc_maxlen)
+        self.doc_tokenizer = DocTokenizer(args.doc_maxlen, mode='train')
         self.tensorize_triples = partial(tensorize_triples, self.query_tokenizer, self.doc_tokenizer)
         self.position = 0
         self.switching_prob = args.switching_prob

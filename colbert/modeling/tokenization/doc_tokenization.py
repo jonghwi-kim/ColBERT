@@ -5,11 +5,12 @@ from colbert.modeling.tokenization.utils import _split_into_batches, _sort_by_le
 
 
 class DocTokenizer():
-    def __init__(self, doc_maxlen, base_model="xlm-roberta-base"):
+    def __init__(self, doc_maxlen, mode, base_model="xlm-roberta-base"):
         self.tok = XLMRobertaTokenizer.from_pretrained(base_model)
         self.tok.add_tokens(['[unused1]'])
         self.tok.add_tokens(['[unused2]'])
         self.doc_maxlen = doc_maxlen
+        self.mode = mode
 
         self.D_marker_token, self.D_marker_token_id = '[D]', 250003
         self.cls_token, self.cls_token_id = self.tok.cls_token, self.tok.cls_token_id
@@ -52,9 +53,13 @@ class DocTokenizer():
         # add placehold for the [D] marker
         batch_text = ['. ' + x for x in batch_text]
 
-        #obj = self.tok(batch_text, padding='longest', truncation='longest_first', return_tensors='pt', max_length=self.doc_maxlen)
-        obj = self.tok(batch_text, padding='max_length', truncation=True, return_tensors='pt', max_length=self.doc_maxlen)
-
+        if self.mode == 'train':
+            obj = self.tok(batch_text, padding='max_length', truncation=True, return_tensors='pt', max_length=self.doc_maxlen)
+        elif self.mode == 'inference':
+            obj = self.tok(batch_text, padding='longest', truncation='longest_first', return_tensors='pt', max_length=self.doc_maxlen)
+        else:
+            raise NotImplementedError
+        
         ids, mask = obj['input_ids'], obj['attention_mask']
 
         # postprocess for the [D] marker
