@@ -101,7 +101,7 @@ def train(args):
 
         for en_queries, en_passages, cs_queries, cs_docs in BatchSteps[0]:
             with amp.context():
-                ir_scores, token_alignment_loss = colbert(en_queries, en_passages, cs_queries, cs_docs, args.ir_triplet_type)
+                ir_scores, token_alignment_loss = colbert(en_queries, en_passages, cs_queries, cs_docs, args.ir_triplet_type, args.seed)
                 ir_scores = ir_scores.view(2, -1).permute(1, 0)
                 ir_loss = criterion(ir_scores, labels[:ir_scores.size(0)])
                 ir_loss = ir_loss / args.accumsteps

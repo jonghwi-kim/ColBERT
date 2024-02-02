@@ -15,7 +15,6 @@ class ColBERT(RobertaPreTrainedModel):
     def __init__(self, config, query_maxlen, doc_maxlen, mask_punctuation, dim=128, similarity_metric='cosine', align_obj=None):
 
         super(ColBERT, self).__init__(config)
-        print(config)
 
         self.query_maxlen = query_maxlen
         self.doc_maxlen = doc_maxlen
@@ -40,30 +39,35 @@ class ColBERT(RobertaPreTrainedModel):
         self.linear = nn.Linear(config.hidden_size, dim, bias=False)
         self.init_weights()
 
-    def forward(self, Q, D, CS_Q, CS_D, ir_triplet_type='original'):
+    def forward(self, Q, D, CS_Q, CS_D, ir_triplet_type='original', seed=12345):
         ### To Do ###
         # Organize the code below. Quite messy :(
-        # In particular, the codes for diverse contrastive loss
+        # In particular, the codes for diverse contrastive loss and diverse triplet types.
+    
+        if self.align_obj is not None:
+            query_rep = self.query(*Q)
+            doc_rep = self.doc(*D)
         
-        query_rep = self.query(*Q)
-        doc_rep = self.doc(*D)
-
         if self.align_obj == 'token_contrast':
             contrastive_loss, cs_query_rep, cs_doc_rep = self.compute_token_contrastive_loss(query_rep, doc_rep, CS_Q, CS_D)
         elif self.align_obj == 'colbert_contrast':        
             contrastive_loss, cs_query_rep, cs_doc_rep = self.compute_colbert_contrastive_loss(query_rep, doc_rep, CS_Q, CS_D)
         else:
             contrastive_loss = torch.tensor(0.0)
-        
-        if ir_triplet_type =='original':
-            ir_score = self.max_sim_score(query_rep, doc_rep)
-        elif ir_triplet_type == 'shuffled' and random.random() < 0.5:
-            ir_score = self.max_sim_score(query_rep, doc_rep)
-        else:
-            ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
-                
-        return ir_score, contrastive_loss 
     
+        chance = random.random()
+        if (ir_triplet_type =='original') or (ir_triplet_type == 'shuffled' and chance < 0.5):
+            if self.align_obj is  None:
+                query_rep = self.query(*Q)
+                doc_rep = self.doc(*D)
+            ir_score = self.max_sim_score(query_rep, doc_rep)
+        elif (ir_triplet_type =='codeswitched') or (ir_triplet_type == 'shuffled' and chance >= 0.5):
+            if self.align_obj is  None:
+                cs_query_rep = self.query(*CS_Q[:2]).repeat(2,1,1)
+                cs_doc_rep = self.doc(*CS_D[:2])
+            ir_score = self.max_sim_score(cs_query_rep, cs_doc_rep)
+        
+        return ir_score, contrastive_loss 
 
     def query(self, input_ids, attention_mask):
         input_ids, attention_mask = input_ids.to(DEVICE), attention_mask.to(DEVICE)
