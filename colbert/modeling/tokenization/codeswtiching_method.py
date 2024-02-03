@@ -8,8 +8,7 @@ from nltk.corpus import stopwords
 count_all_words = False
 en_stopwords = None if count_all_words else set(stopwords.words('english'))
 
-def mplm_dictionary_codeswitch(tokenizer, token_ids, lexicon, switching_prob=0.5, seed=12345):
-    random.seed(seed)
+def mplm_dictionary_codeswitch(tokenizer, token_ids, lexicon, switching_prob=0.5):
     code_switched_token_ids = token_ids.clone()
     cs_index = torch.zeros(token_ids.size(0), token_ids.size(1))
     
@@ -34,13 +33,12 @@ def mplm_dictionary_codeswitch(tokenizer, token_ids, lexicon, switching_prob=0.5
     return code_switched_token_ids, cs_index, stat
 
 
-def golden_dictionary_codeswitch(sentences, lexicons, switching_prob=0.5, seed=12345):
-    random.seed(seed)
+def golden_dictionary_codeswitch(sentences, lexicons, word_tokenizer, word_detokenizer, switching_prob=0.5):
     
     assert lexicons is not None, "No lexicons provided. Check whether you are using the correct lexicon file."
     
-    word_tokenizer = TreebankWordTokenizer()
-    word_detokenizer = TreebankWordDetokenizer()
+    #word_tokenizer = TreebankWordTokenizer()
+    #word_detokenizer = TreebankWordDetokenizer()
     
     code_switched_sentences = []
     n_word_list = []

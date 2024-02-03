@@ -114,7 +114,7 @@ def train(args):
                 else:
                     total_loss = ir_loss + token_alignment_loss
                 
-            if args.rank < 1 and batch_idx % 100 == 0:
+            if args.rank < 1 and batch_idx % 1000 == 0:
                 avg_diff_score_btw_pos_neg = print_progress(ir_scores)
 
             amp.backward(total_loss)
@@ -142,7 +142,7 @@ def train(args):
             num_examples_seen = (batch_idx - start_batch_idx) * args.bsize * args.nranks
             elapsed = float(time.time() - start_time)
 
-            log_to_mlflow = (batch_idx % 20 == 0)
+            log_to_mlflow = (batch_idx % 100 == 0)
             
             if args.target_query_lang != 'en':
                 Run.log_metric('train/avg_num_query_cs', avg_num_query_cs_tokens/(batch_idx+1), step=batch_idx, log_to_mlflow=log_to_mlflow)
@@ -164,6 +164,6 @@ def train(args):
             Run.log_metric('train/throughput', num_examples_seen / elapsed, step=batch_idx, log_to_mlflow=log_to_mlflow)
 
             manage_checkpoints(args, colbert, optimizer, batch_idx+1)
-            if batch_idx % 100 == 0:
+            if batch_idx % 1000 == 0:
                 Run.log_metric('train/avg_diff_score_btw_pos_neg', avg_diff_score_btw_pos_neg, step=batch_idx, log_to_mlflow=log_to_mlflow)
                 print_message(batch_idx+1, (avg_ir_loss+avg_ta_loss), avg_ir_loss, avg_ta_loss)

@@ -7,6 +7,7 @@ from colbert.utils.utils import print_message
 from colbert.modeling.tokenization import QueryTokenizer, DocTokenizer, tensorize_triples
 
 from colbert.utils.runs import Run
+from nltk.tokenize import TreebankWordTokenizer, TreebankWordDetokenizer
 
 
 class LazyBatcher():
@@ -21,6 +22,8 @@ class LazyBatcher():
         self.seed = args.seed
         self.lexicon_type = args.lexicon_type
         self.lexicons = {'query': None, 'doc': None}
+        self.word_tokenizer = None
+        self.word_detokenizer = None
     
         self.triples = self._load_triples(args.triples, rank, nranks)
         self.queries = self._load_queries(args.queries)
@@ -44,6 +47,8 @@ class LazyBatcher():
         elif lexicon_type.lower() == 'muse_golden':
             self.lexicons['query'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{query_lang}.json"))) if query_lang != "en" else None
             self.lexicons['doc'] = ujson.load(open(os.path.join(lexicon_dir, f"en-{doc_lang}.json"))) if doc_lang != "en" else None
+            self.word_tokenizer = TreebankWordTokenizer()
+            self.word_detokenizer = TreebankWordDetokenizer()
         elif lexicon_type.lower() == 'muse_emb':
             self.lexicons['query'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{query_lang}_train_query.pkl"), 'rb'))
             self.lexicons['doc'] = pickle.load(open(os.path.join(lexicon_dir, f"{lexicon_type}_{doc_lang}_train_corpus.pkl"), 'rb'))
@@ -137,7 +142,7 @@ class LazyBatcher():
     def collate(self, queries, positives, negatives):
         assert len(queries) == len(positives) == len(negatives) == self.bsize
 
-        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.switching_prob, self.seed, self.lexicon_type, self.lexicons)
+        return self.tensorize_triples(queries, positives, negatives, self.bsize // self.accumsteps, self.switching_prob, self.seed, self.lexicon_type, self.lexicons, self.word_tokenizer, self.word_detokenizer)
 
     def skip_to_batch(self, batch_idx, intended_batch_size):
         Run.warn(f'Skipping to batch #{batch_idx} (with intended_batch_size = {intended_batch_size}) for training.')
