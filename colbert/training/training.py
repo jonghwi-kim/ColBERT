@@ -139,11 +139,12 @@ def train(args):
             avg_ir_loss = ir_train_loss / (batch_idx+1)
             avg_ta_loss = ta_train_loss / (batch_idx+1)
 
-            num_examples_seen = (batch_idx - start_batch_idx) * args.bsize * args.nranks
-            elapsed = float(time.time() - start_time)
+            #num_examples_seen = (batch_idx - start_batch_idx) * args.bsize * args.nranks
+            #elapsed = float(time.time() - start_time)
 
-            log_to_mlflow = (batch_idx % 100 == 0)
+            #log_to_mlflow = (batch_idx % 100 == 0)
             
+            """
             if args.target_query_lang != 'en':
                 Run.log_metric('train/avg_num_query_cs', avg_num_query_cs_tokens/(batch_idx+1), step=batch_idx, log_to_mlflow=log_to_mlflow)
                 Run.log_metric('train/avg_percentage_query_cs', avg_num_query_cs_tokens/avg_num_query_tokens, step=batch_idx, log_to_mlflow=log_to_mlflow)
@@ -162,8 +163,8 @@ def train(args):
             
             Run.log_metric('train/examples', num_examples_seen, step=batch_idx, log_to_mlflow=log_to_mlflow)
             Run.log_metric('train/throughput', num_examples_seen / elapsed, step=batch_idx, log_to_mlflow=log_to_mlflow)
-
+            """
             manage_checkpoints(args, colbert, optimizer, batch_idx+1)
             if batch_idx % 1000 == 0:
-                Run.log_metric('train/avg_diff_score_btw_pos_neg', avg_diff_score_btw_pos_neg, step=batch_idx, log_to_mlflow=log_to_mlflow)
+                #Run.log_metric('train/avg_diff_score_btw_pos_neg', avg_diff_score_btw_pos_neg, step=batch_idx, log_to_mlflow=log_to_mlflow)
                 print_message(batch_idx+1, (avg_ir_loss+avg_ta_loss), avg_ir_loss, avg_ta_loss)

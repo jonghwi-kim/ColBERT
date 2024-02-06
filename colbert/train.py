@@ -26,8 +26,8 @@ def main():
 
     args.lazy = args.collection is not None
 
-    with Run.context(consider_failed_if_interrupted=False):
-        train(args)
+    #with Run.context(consider_failed_if_interrupted=False):
+    train(args)
 
 
 if __name__ == "__main__":

@@ -126,9 +126,9 @@ class CollectionEncoder():
 
             assert len(passage) >= 1
 
-            if len(other) >= 1:
-                title, *_ = other
-                passage = title + ' | ' + passage
+            #if len(other) >= 1:
+            #    title, *_ = other
+            #    passage = title + ' | ' + passage
 
             batch.append(passage)
 
