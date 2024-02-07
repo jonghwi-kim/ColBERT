@@ -45,11 +45,11 @@ def retrieve(args):
                 
                 total_latency = encode_latency + search_latency  # Total Latency
                 
-                if len(pids):
-                    print(qoffset+query_idx, q, len(scores), len(pids), scores[0], pids[0],
-                          round(encode_latency / (qoffset+query_idx+1), 3), 'ms',
-                          round(search_latency / (qoffset+query_idx+1), 3), 'ms',
-                          round(total_latency / (qoffset+query_idx+1), 3), 'ms')
+                #if len(pids):
+                #    print(qoffset+query_idx, q, len(scores), len(pids), scores[0], pids[0],
+                #          round(encode_latency / (qoffset+query_idx+1), 3), 'ms',
+                #          round(search_latency / (qoffset+query_idx+1), 3), 'ms',
+                #          round(total_latency / (qoffset+query_idx+1), 3), 'ms')
                 
                 torch.cuda.synchronize()
                 rankings.append(zip(pids, scores))
@@ -62,6 +62,14 @@ def retrieve(args):
 
                 ranking = [(score, pid, None) for pid, score in itertools.islice(ranking, args.depth)]
                 rlogger.log(qid, ranking, is_ranked=True)
+                
+                latest_qid = qoffset + query_idx
+                
+                
+        print(latest_qid, q, len(scores), len(pids), scores[0], pids[0],
+                          round(encode_latency / (latest_qid+1), 3), 'ms',
+                          round(search_latency / (latest_qid+1), 3), 'ms',
+                          round(total_latency / (latest_qid+1), 3), 'ms')
 
     print('\n\n')
     print(ranking_logger.filename)

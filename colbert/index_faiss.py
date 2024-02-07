@@ -21,22 +21,23 @@ def main():
     assert args.slices >= 1
     assert args.sample is None or (0.0 < args.sample < 1.0), args.sample
 
-    with Run.context():
-        args.index_path = os.path.join(args.index_root, args.index_name)
-        #assert os.path.exists(args.index_path), args.index_path
+    #with Run.context():
+    
+    args.index_path = os.path.join(args.index_root, args.index_name)
+    #assert os.path.exists(args.index_path), args.index_path
 
-        num_embeddings = sum(load_doclens(args.index_path))
-        print("#> num_embeddings =", num_embeddings)
+    num_embeddings = sum(load_doclens(args.index_path))
+    print("#> num_embeddings =", num_embeddings)
 
-        if args.partitions is None:
-            args.partitions = 1 << math.ceil(math.log2(8 * math.sqrt(num_embeddings)))
-            print('\n\n')
-            Run.warn("You did not specify --partitions!")
-            Run.warn("Default computation chooses", args.partitions,
-                     "partitions (for {} embeddings)".format(num_embeddings))
-            print('\n\n')
+    if args.partitions is None:
+        args.partitions = 1 << math.ceil(math.log2(8 * math.sqrt(num_embeddings)))
+        print('\n\n')
+        Run.warn("You did not specify --partitions!")
+        Run.warn("Default computation chooses", args.partitions,
+                    "partitions (for {} embeddings)".format(num_embeddings))
+        print('\n\n')
 
-        index_faiss(args)
+    index_faiss(args)
 
 
 if __name__ == "__main__":

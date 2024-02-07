@@ -23,34 +23,35 @@ def main():
 
     args = parser.parse()
 
-    with Run.context():
-        args.index_path = os.path.join(args.index_root, args.index_name)
-        #assert not os.path.exists(args.index_path), args.index_path
+    #with Run.context():
+    
+    args.index_path = os.path.join(args.index_root, args.index_name)
+    #assert not os.path.exists(args.index_path), args.index_path
 
-        distributed.barrier(args.rank)
+    distributed.barrier(args.rank)
 
-        if args.rank < 1:
-            create_directory(args.index_root)
-            create_directory(args.index_path)
+    if args.rank < 1:
+        create_directory(args.index_root)
+        create_directory(args.index_path)
 
-        distributed.barrier(args.rank)
+    distributed.barrier(args.rank)
 
-        process_idx = max(0, args.rank)
-        encoder = CollectionEncoder(args, process_idx=process_idx, num_processes=args.nranks)
-        encoder.encode()
+    process_idx = max(0, args.rank)
+    encoder = CollectionEncoder(args, process_idx=process_idx, num_processes=args.nranks)
+    encoder.encode()
 
-        distributed.barrier(args.rank)
+    distributed.barrier(args.rank)
 
-        # Save metadata.
-        if args.rank < 1:
-            metadata_path = os.path.join(args.index_path, 'metadata.json')
-            print_message("Saving (the following) metadata to", metadata_path, "..")
-            print(args.input_arguments)
+    # Save metadata.
+    if args.rank < 1:
+        metadata_path = os.path.join(args.index_path, 'metadata.json')
+        print_message("Saving (the following) metadata to", metadata_path, "..")
+        print(args.input_arguments)
 
-            with open(metadata_path, 'w') as output_metadata:
-                ujson.dump(args.input_arguments.__dict__, output_metadata)
+        with open(metadata_path, 'w') as output_metadata:
+            ujson.dump(args.input_arguments.__dict__, output_metadata)
 
-        distributed.barrier(args.rank)
+    distributed.barrier(args.rank)
 
 
 if __name__ == "__main__":
